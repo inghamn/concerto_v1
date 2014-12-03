@@ -23,10 +23,22 @@
  * @license      GPLv2, see www.gnu.org/licenses/gpl-2.0.html
  * @version      $Revision$
  */
+function outputImageFile($file)
+{
+    $timestamp = filemtime($file);
+    header("Last-Modified: ".gmdate("D, d M Y H:i:s", $timestamp)." GMT");
+
+    $img = getimagesize($file);
+    $fp = fopen($file, "rb");
+    header('Content-type: ' .$img['mime']);
+    header('Content-Length: ' .filesize($file));
+    fpassthru($fp);
+    exit();
+}
 
 function render($type, $filename, $width = false, $height = false, $stretch = false)
 {
-    $fileinfo = explode("\.", $filename);
+    $fileinfo = explode(".", $filename);
     if ($type == 'image') {
         $cache_path = IMAGE_DIR . 'cache/' . $fileinfo[0] . '_' . $width . '_' . $height . '.' . $fileinfo[1];
         $path = IMAGE_DIR . $filename;
@@ -35,7 +47,6 @@ function render($type, $filename, $width = false, $height = false, $stretch = fa
         $path = TEMPLATE_DIR . $filename;
     }
 
-    $timestamp = filemtime($path);
 
     //send not modified headers if the image has not been modified since
     if (isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) && strtotime($_SERVER['HTTP_IF_MODIFIED_SINCE']) >= $timestamp) {
@@ -43,62 +54,26 @@ function render($type, $filename, $width = false, $height = false, $stretch = fa
         return;
     }
 
-    //Optional memcache setup
-    $memcache_connected = false; //Assume its not working
-    if (defined('MEMCACHE_ENABLE') && MEMCACHE_ENABLE) {
-        $memcache = new Memcache();
-        $memcached_connected = $memcache->addServer(MEMCACHE_SERVER,(int)MEMCACHE_PORT);
-        $key = $filename . '_' . $width . '_' . $height;
-    }
-
     //lets render the image!
-    header("Last-Modified: ".gmdate("D, d M Y H:i:s", $timestamp)." GMT");
     if ($width && $height) {
         //Do we already have a cached copy at the ready?
-        if (file_exists($cache_path) && $size = getimagesize($cache_path)) {
-            $fp = fopen($cache_path, "rb");
-            header('Content-type: ' .$size['mime']);
-            header('Content-Length: ' .filesize($cache_path));
-            fpassthru($fp); //If so, then serve it
-            exit(0);
-        }
-        elseif (defined('MEMCACHE_ENABLE') && MEMCACHE_ENABLE && $memcached_connected && $dat = $memcache->get($key)) {
-            header('Content-type: image/' . $dat['type']);
-            header('Content-Length: ' . mb_strlen($dat['data']));
-            echo $dat['data'];
-            exit(0);
+        if (file_exists($cache_path)) {
+            outputImageFile($cache_path);
         }
         else {
-            include_once(COMMON_DIR.'image.inc.php');
-            ob_start(); //Start a buffer to catch the image data
-            $type = resize($path, $width, $height, $stretch); //If not, lets resize it.
-            $dat = ob_get_contents(); //Read the image data generated
-            $size = mb_strlen($dat);
-            header('Content-Length: ' . $size);
-            ob_end_flush(); //Output the buffer and clear it
+            // Generate a new cache copy
+            $dimensions = $width.'x'.$height;
+            exec(IMAGEMAGICK."/convert $path -channel rgba -alpha set -resize '$dimensions>' $cache_path");
 
-            //If mecache is enabled and the image will fit, cache it for 7 days
-            if(MEMCACHE_ENABLE && $size < 1048576 && $memcached_connected){
-                $memcache->set($key, array('data'=>$dat, 'type' => $type), NULL, 7*24*60*60);
-            }
+            $LOG = fopen(CONTENT_DIR . 'render/render_log', 'a');
+            fwrite($LOG, "$path $width $height\n");
+            fclose($LOG);
 
-            $log_file = CONTENT_DIR . 'render/render_log';
-            if ($fh = @fopen($log_file, 'a')) {
-                $log_data = $path . ' ' . $width . ' ' . $height . "\n";
-                //echo $log_data;
-                fwrite($fh, $log_data);
-                fclose($fh);
-            }
-            exit(0);
+            outputImageFile($cache_path);
         }
     }
     else {
-        $img = getimagesize($path);
-        $fp = fopen($path, "rb");
-        header('Content-type: ' .$img['mime']);
-        header('Content-Length: ' .filesize($path));
-        fpassthru($fp);
-        exit(0);
+        outputImageFile($path);
     }
 }
 

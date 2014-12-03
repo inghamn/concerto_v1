@@ -6,7 +6,7 @@
  * Copyright (C) 2009 Rensselaer Polytechnic Institute
  * (Student Senate Web Technologies Group)
  *
- * This program is free software; you can redistribute it and/or modify it 
+ * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
  * Software Foundation; either version 2 of the License, or (at your option)
  * any later version.
@@ -26,7 +26,7 @@
 
 /**
  * config.inc.php
- * 
+ *
  * Concerto system configuration - where people can't get to it
  */
 
@@ -44,6 +44,8 @@ define('COMMON_DIR', ROOT_DIR.'common/');             //server-side path to dir 
 define('CONTENT_DIR', ROOT_DIR.'content/');      //server-side path to content images
 define('IMAGE_DIR', CONTENT_DIR.'images/');      //server-side path to content images
 define('TEMPLATE_DIR', CONTENT_DIR.'templates/');//server-side path to screen templates
+
+define('IMAGEMAGICK', '/usr/bin');               // Installation location for ImageMagick
 
 //URLS for hyperlinks and the like
 define('ROOT_URL', '/');                         //the root location where Concerto lives
